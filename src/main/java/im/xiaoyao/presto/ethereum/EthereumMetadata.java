@@ -25,7 +25,7 @@ import java.util.Set;
 import static im.xiaoyao.presto.ethereum.handle.EthereumHandleResolver.convertTableHandle;
 import static java.util.Objects.requireNonNull;
 
-public class EthereumMetadata extends EthereumBaseMetadata {
+public class EthereumMetadata extends BaseEthereumMetadata {
     public static final int H8_BYTE_HASH_STRING_LENGTH = 2 + 8 * 2;
     public static final int H32_BYTE_HASH_STRING_LENGTH = 2 + 32 * 2;
     public static final int H256_BYTE_HASH_STRING_LENGTH = 2 + 256 * 2;

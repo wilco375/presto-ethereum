@@ -18,7 +18,7 @@ import static im.xiaoyao.presto.ethereum.handle.EthereumHandleResolver.convertCo
 import static im.xiaoyao.presto.ethereum.handle.EthereumHandleResolver.convertTableHandle;
 import static java.util.Objects.requireNonNull;
 
-public abstract class EthereumBaseMetadata implements ConnectorMetadata {
+public abstract class BaseEthereumMetadata implements ConnectorMetadata {
     protected static final Logger log = Logger.get(EthereumMetadata.class);
 
     protected static final String DEFAULT_SCHEMA = "default";
