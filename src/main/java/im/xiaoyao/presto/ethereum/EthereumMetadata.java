@@ -1,49 +1,31 @@
 package im.xiaoyao.presto.ethereum;
 
-import com.facebook.presto.common.type.*;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableLayout;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.ConnectorTableLayoutResult;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Marker;
 import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.type.*;
+import com.facebook.presto.spi.*;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import im.xiaoyao.presto.ethereum.handle.EthereumColumnHandle;
 import im.xiaoyao.presto.ethereum.handle.EthereumTableHandle;
 import im.xiaoyao.presto.ethereum.handle.EthereumTableLayoutHandle;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import jdk.internal.net.http.common.Pair;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameter;
 
 import javax.inject.Inject;
-
 import java.io.IOException;
 import java.math.BigInteger;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
-import static im.xiaoyao.presto.ethereum.handle.EthereumHandleResolver.convertColumnHandle;
 import static im.xiaoyao.presto.ethereum.handle.EthereumHandleResolver.convertTableHandle;
 import static java.util.Objects.requireNonNull;
 
-public class EthereumMetadata implements ConnectorMetadata {
-    private static final Logger log = Logger.get(EthereumMetadata.class);
-
-    private static final String DEFAULT_SCHEMA = "default";
+public class EthereumMetadata extends EthereumBaseMetadata {
     public static final int H8_BYTE_HASH_STRING_LENGTH = 2 + 8 * 2;
     public static final int H32_BYTE_HASH_STRING_LENGTH = 2 + 32 * 2;
     public static final int H256_BYTE_HASH_STRING_LENGTH = 2 + 256 * 2;
@@ -56,87 +38,6 @@ public class EthereumMetadata implements ConnectorMetadata {
             EthereumWeb3jProvider provider
     ) {
         this.web3j = requireNonNull(provider, "provider is null").getWeb3j();
-    }
-
-    /**
-     * Get schemas
-     * @param session
-     * @return available schemas
-     */
-    @Override
-    public List<String> listSchemaNames(ConnectorSession session) {
-        return Collections.singletonList(DEFAULT_SCHEMA);
-    }
-
-    /**
-     * Get handle for table
-     * @param session
-     * @param schemaTableName table name
-     * @return table handle
-     */
-    @Override
-    public EthereumTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName) {
-        if (EthereumTable.BLOCK.getName().equals(schemaTableName.getTableName())) {
-            return new EthereumTableHandle(DEFAULT_SCHEMA, EthereumTable.BLOCK.getName());
-        } else if (EthereumTable.TRANSACTION.getName().equals(schemaTableName.getTableName())) {
-            return new EthereumTableHandle(DEFAULT_SCHEMA, EthereumTable.TRANSACTION.getName());
-        } else if (EthereumTable.ERC20.getName().equals(schemaTableName.getTableName())) {
-            return new EthereumTableHandle(DEFAULT_SCHEMA, EthereumTable.ERC20.getName());
-        } else {
-            throw new IllegalArgumentException("Unknown Table Name " + schemaTableName.getTableName());
-        }
-    }
-
-    /**
-     * Returns all tables
-     * @param session
-     * @param schemaName schema to return the tables of
-     * @return list of tables
-     */
-    @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName) {
-        return ImmutableList.of(new SchemaTableName(DEFAULT_SCHEMA, EthereumTable.BLOCK.getName()),
-                new SchemaTableName(DEFAULT_SCHEMA, EthereumTable.TRANSACTION.getName()),
-                new SchemaTableName(DEFAULT_SCHEMA, EthereumTable.ERC20.getName()));
-    }
-
-
-    /**
-     * Returns all tables
-     * @param session
-     * @param schemaNameOrNull schema to return the tables of
-     * @return list of tables
-     */
-    @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
-    {
-        return listTables(session, Optional.ofNullable(schemaNameOrNull));
-    }
-
-    @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        requireNonNull(prefix, "prefix is null");
-
-        List<SchemaTableName> tableNames = prefix.getSchemaName() == null
-                ? listTables(session, (String) null)
-                : ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
-
-        return tableNames.stream()
-                .collect(Collectors.toMap(
-                        Function.identity(),
-                        (tableName) -> getTableMetadata(tableName).getColumns())
-                );
-    }
-
-    @Override
-    public ColumnMetadata getColumnMetadata(
-            ConnectorSession session,
-            ConnectorTableHandle tableHandle,
-            ColumnHandle columnHandle
-    ) {
-        convertTableHandle(tableHandle);
-        return convertColumnHandle(columnHandle).getColumnMetadata();
     }
 
     @Override
@@ -200,56 +101,13 @@ public class EthereumMetadata implements ConnectorMetadata {
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
 
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle) {
-        return new ConnectorTableLayout(handle);
-    }
-
-    /**
-     * Return the columns and their types
-     * @param session
-     * @param tableHandle table to get columns of
-     * @return list of columns
-     */
-    @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle) {
-        return getTableMetadata(convertTableHandle(tableHandle).toSchemaTableName());
-    }
-
-    /**
-     * Return the columns and their types
-     * @param schemaTableName table to get columns of
-     * @return list of columns
-     */
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName) {
-        List<ColumnMetadata> columnMetadata = getColumnsWithTypes(schemaTableName.getTableName()).stream()
-                .map(column -> new ColumnMetadata(column.first, column.second))
-                .collect(Collectors.toList());
-
-        return new ConnectorTableMetadata(schemaTableName, columnMetadata);
-    }
-
-    /**
-     * Return the columns and their types
-     * @param session
-     * @param tableHandle table to get columns of
-     * @return list of columns
-     */
-    @SuppressWarnings("ValueOfIncrementOrDecrementUsed")
-    @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle) {
-        AtomicInteger index = new AtomicInteger();
-        return getColumnsWithTypes(convertTableHandle(tableHandle).getTableName()).stream()
-                .map(column -> new EthereumColumnHandle(index.getAndIncrement(), column.first, column.second))
-                .collect(Collectors.toMap(EthereumColumnHandle::getName, Function.identity()));
-    }
-
     /**
      * Return the columns and their types
      * @param table table to get columns of
      * @return list of columns
      */
-    private List<Pair<String, Type>> getColumnsWithTypes(String table) {
+    @Override
+    protected  List<Pair<String, Type>> getColumnsWithTypes(String table) {
         ImmutableList.Builder<Pair<String, Type>> builder = ImmutableList.builder();
 
         if (EthereumTable.BLOCK.getName().equals(table)) {
