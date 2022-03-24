@@ -1,23 +1,18 @@
 package im.xiaoyao.presto.ethereum;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.*;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.google.common.collect.ImmutableList;
 import im.xiaoyao.presto.ethereum.connector.EthereumConnectorConfig;
-import im.xiaoyao.presto.ethereum.handle.EthereumTableHandle;
 import im.xiaoyao.presto.ethereum.handle.EthereumTableLayoutHandle;
 import io.airlift.log.Logger;
 import org.web3j.protocol.Web3j;
-import org.web3j.protocol.core.methods.response.EthBlockNumber;
 
 import javax.inject.Inject;
-
 import java.io.IOException;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 import static im.xiaoyao.presto.ethereum.handle.EthereumHandleResolver.convertLayout;
 import static java.util.Objects.requireNonNull;
@@ -37,6 +32,14 @@ public class EthereumSplitManager implements ConnectorSplitManager {
         this.web3j = web3jProvider.getWeb3j();
     }
 
+    /**
+     * Convert list of block ranges to a list of splits
+     * @param transaction
+     * @param session
+     * @param layout table layout and block ranges
+     * @param splitSchedulingContext
+     * @return
+     */
     @Override
     public ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
@@ -45,29 +48,31 @@ public class EthereumSplitManager implements ConnectorSplitManager {
             SplitSchedulingContext splitSchedulingContext
     ) {
         EthereumTableLayoutHandle tableLayoutHandle = convertLayout(layout);
-        EthereumTableHandle tableHandle = tableLayoutHandle.getTable();
+        EthereumTable table = EthereumTable.valueOf(tableLayoutHandle.getTable().getTableName().toUpperCase());
 
         try {
-            EthBlockNumber blockNumber = web3j.ethBlockNumber().send();
-            log.info("current block number: " + blockNumber.getBlockNumber());
-            ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
+            long lastBlockNumber = web3j.ethBlockNumber().send().getBlockNumber().longValue();
+            log.info("current block number: " + lastBlockNumber);
 
-            for (EthereumBlockRange blockRange : tableLayoutHandle.getBlockRanges()) {
-                log.info("start: %d\tend: %d", blockRange.getStartBlock(), blockRange.getEndBlock());
-                for (long i = blockRange.getStartBlock(); i <= (blockRange.getEndBlock() == -1 ? blockNumber.getBlockNumber().longValue() : blockRange.getEndBlock()); i++) {
-                    EthereumSplit split = new EthereumSplit(i, EthereumTable.valueOf(tableHandle.getTableName().toUpperCase()));
-                    splits.add(split);
-                }
-            }
-
+            List<ConnectorSplit> connectorSplits;
             if (tableLayoutHandle.getBlockRanges().isEmpty()) {
-                for (long i = 1; i <= blockNumber.getBlockNumber().longValue(); i++) {
-                    EthereumSplit split = new EthereumSplit(i, EthereumTable.valueOf(tableHandle.getTableName().toUpperCase()));
-                    splits.add(split);
-                }
+                connectorSplits = LongStream.range(0, lastBlockNumber)
+                        .boxed()
+                        .map(blockNumber -> new EthereumSplit(blockNumber, table))
+                        .collect(Collectors.toList());
+            } else {
+                connectorSplits = tableLayoutHandle.getBlockRanges()
+                        .stream()
+                        .flatMap(blockRange ->
+                                LongStream.range(
+                                        blockRange.getStartBlock(),
+                                        blockRange.getEndBlock() == -1 ? lastBlockNumber : blockRange.getEndBlock()
+                                ).boxed()
+                        )
+                        .map(blockNumber -> new EthereumSplit(blockNumber, table))
+                        .collect(Collectors.toList());
             }
 
-            ImmutableList<ConnectorSplit> connectorSplits = splits.build();
             log.info("Built %d splits", connectorSplits.size());
             return new FixedSplitSource(connectorSplits);
         } catch (IOException e) {

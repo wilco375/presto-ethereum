@@ -13,6 +13,7 @@ import org.web3j.protocol.core.methods.response.EthBlock;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,13 +32,9 @@ public class EthereumRecordSet implements RecordSet {
 
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
 
-        ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
-
-        for (EthereumColumnHandle handle : columnHandles) {
-            typeBuilder.add(handle.getType());
-        }
-
-        this.columnTypes = typeBuilder.build();
+        this.columnTypes = columnHandles.stream()
+                .map(EthereumColumnHandle::getType)
+                .collect(Collectors.toList());
     }
 
     @Override
