@@ -40,6 +40,14 @@ public class EthereumMetadata extends EthereumBaseMetadata {
         this.web3j = requireNonNull(provider, "provider is null").getWeb3j();
     }
 
+    /**
+     * Get block ranges to search in based on query
+     * @param session
+     * @param table queried table
+     * @param constraint query constraints
+     * @param desiredColumns
+     * @return
+     */
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(
             ConnectorSession session,
@@ -53,45 +61,52 @@ public class EthereumMetadata extends EthereumBaseMetadata {
         if (domains.isPresent()) {
             Map<ColumnHandle, Domain> columnHandleDomainMap = domains.get();
             for (Map.Entry<ColumnHandle, Domain> entry : columnHandleDomainMap.entrySet()) {
-                if (entry.getKey() instanceof EthereumColumnHandle
-                        && (((EthereumColumnHandle) entry.getKey()).getName().equals("block_number")
-                        || ((EthereumColumnHandle) entry.getKey()).getName().equals("tx_blockNumber")
-                        || ((EthereumColumnHandle) entry.getKey()).getName().equals("erc20_blockNumber"))) {
-                    entry.getValue().getValues().getRanges().getOrderedRanges().forEach(r -> {
-                        Marker low = r.getLow();
-                        Marker high = r.getHigh();
-                        builder.add(EthereumBlockRange.fromMarkers(low, high));
-                    });
-                } else if (entry.getKey() instanceof EthereumColumnHandle
-                        && (((EthereumColumnHandle) entry.getKey()).getName().equals("block_hash")
-                        || ((EthereumColumnHandle) entry.getKey()).getName().equals("tx_blockHash"))) {
-                    entry.getValue().getValues().getRanges().getOrderedRanges().stream()
-                            .filter(Range::isSingleValue).forEach(r -> {
-                                String blockHash = ((Slice) r.getSingleValue()).toStringUtf8();
-                                try {
-                                    long blockNumber = web3j.ethGetBlockByHash(blockHash, true).send().getBlock().getNumber().longValue();
-                                    builder.add(new EthereumBlockRange(blockNumber, blockNumber));
-                                }
-                                catch (IOException e) {
-                                    throw new IllegalStateException("Unable to getting block by hash " + blockHash);
-                                }
-                            });
-                    log.info(entry.getValue().getValues().toString(null));
-                } else if (entry.getKey() instanceof EthereumColumnHandle
-                        && (((EthereumColumnHandle) entry.getKey()).getName().equals("block_timestamp"))) {
-                    entry.getValue().getValues().getRanges().getOrderedRanges().forEach(r -> {
-                        Marker low = r.getLow();
-                        Marker high = r.getHigh();
-                        try {
-                            long startBlock = low.isLowerUnbounded() ? 1L : findBlockByTimestamp((Long) low.getValue(), -1L);
-                            long endBlock = high.isUpperUnbounded() ? -1L : findBlockByTimestamp((Long) high.getValue(), 1L);
-                            builder.add(new EthereumBlockRange(startBlock, endBlock));
-                        }
-                        catch (IOException e) {
-                            throw new IllegalStateException("Unable to find block by timestamp");
-                        }
-                    });
-                    log.info(entry.getValue().getValues().toString(null));
+                if (!(entry.getKey() instanceof EthereumColumnHandle)) continue;
+
+                String columnName = ((EthereumColumnHandle) entry.getKey()).getName();
+                List<Range> orderedRanges = entry.getValue().getValues().getRanges().getOrderedRanges();
+
+                switch (columnName) {
+                    case "block_number":
+                    case "tx_blockNumber":
+                    case "erc20_blockNumber":
+                        // Limit query to block number range
+                        orderedRanges.forEach(r -> {
+                            Marker low = r.getLow();
+                            Marker high = r.getHigh();
+                            builder.add(EthereumBlockRange.fromMarkers(low, high));
+                        });
+                        break;
+                    case "block_hash":
+                    case "tx_blockHash":
+                        // Limit query to block hash range
+                        orderedRanges.stream()
+                                .filter(Range::isSingleValue).forEach(r -> {
+                                    String blockHash = ((Slice) r.getSingleValue()).toStringUtf8();
+                                    try {
+                                        long blockNumber = web3j.ethGetBlockByHash(blockHash, true).send().getBlock().getNumber().longValue();
+                                        builder.add(new EthereumBlockRange(blockNumber, blockNumber));
+                                    } catch (IOException e) {
+                                        throw new IllegalStateException("Unable to getting block by hash " + blockHash);
+                                    }
+                                });
+                        log.info(entry.getValue().getValues().toString(null));
+                        break;
+                    case "block_timestamp":
+                        // Limit query to block timestamp range
+                        orderedRanges.forEach(r -> {
+                            Marker low = r.getLow();
+                            Marker high = r.getHigh();
+                            try {
+                                long startBlock = low.isLowerUnbounded() ? 1L : findBlockByTimestamp((Long) low.getValue(), -1L);
+                                long endBlock = high.isUpperUnbounded() ? -1L : findBlockByTimestamp((Long) high.getValue(), 1L);
+                                builder.add(new EthereumBlockRange(startBlock, endBlock));
+                            } catch (IOException e) {
+                                throw new IllegalStateException("Unable to find block by timestamp");
+                            }
+                        });
+                        log.info(entry.getValue().getValues().toString(null));
+                        break;
                 }
             }
         }
@@ -155,6 +170,12 @@ public class EthereumMetadata extends EthereumBaseMetadata {
         return builder.build();
     }
 
+    /**
+     * Get the ID of a block that was added at a given timestamp
+     * @param timestamp timestamp of block
+     * @param offset offset to middle block
+     * @return ID of block
+     */
     private long findBlockByTimestamp(long timestamp, long offset) throws IOException {
         long startBlock = 1L;
         long currentBlock = web3j.ethBlockNumber().send().getBlockNumber().longValue();
