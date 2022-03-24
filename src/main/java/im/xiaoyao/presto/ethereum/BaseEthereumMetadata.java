@@ -7,7 +7,6 @@ import com.google.common.collect.ImmutableList;
 import im.xiaoyao.presto.ethereum.handle.EthereumColumnHandle;
 import im.xiaoyao.presto.ethereum.handle.EthereumTableHandle;
 import io.airlift.log.Logger;
-import jdk.internal.net.http.common.Pair;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;

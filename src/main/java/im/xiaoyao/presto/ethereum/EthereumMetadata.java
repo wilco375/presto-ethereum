@@ -10,7 +10,6 @@ import im.xiaoyao.presto.ethereum.handle.EthereumColumnHandle;
 import im.xiaoyao.presto.ethereum.handle.EthereumTableHandle;
 import im.xiaoyao.presto.ethereum.handle.EthereumTableLayoutHandle;
 import io.airlift.slice.Slice;
-import jdk.internal.net.http.common.Pair;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameter;
 
