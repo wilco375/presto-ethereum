@@ -4,7 +4,7 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
-import im.xiaoyao.presto.ethereum.EthereumConnectorConfig;
+import im.xiaoyao.presto.ethereum.connector.EthereumConnectorConfig;
 import io.airlift.configuration.ConfigurationLoader;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;

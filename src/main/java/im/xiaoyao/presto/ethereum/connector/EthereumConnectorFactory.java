@@ -1,13 +1,12 @@
-package im.xiaoyao.presto.ethereum;
+package im.xiaoyao.presto.ethereum.connector;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.common.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.inject.Injector;
+import im.xiaoyao.presto.ethereum.handle.EthereumHandleResolver;
 import io.airlift.bootstrap.Bootstrap;
 
 import java.util.Map;
@@ -27,18 +26,11 @@ public class EthereumConnectorFactory implements ConnectorFactory {
 
     @Override
     public Connector create(String connectorId, Map<String, String> config, ConnectorContext context) {
-        requireNonNull(connectorId, "connectorId is null");
         requireNonNull(config, "config is null");
 
         try {
             Bootstrap app = new Bootstrap(
-//                    new JsonModule(),
-                    new EthereumConnectorModule(),
-                    binder -> {
-                        binder.bind(EthereumConnectorId.class).toInstance(new EthereumConnectorId(connectorId));
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                    }
+                    new EthereumConnectorModule()
             );
 
             Injector injector = app.strictConfig()

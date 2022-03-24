@@ -4,6 +4,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
+import im.xiaoyao.presto.ethereum.handle.EthereumColumnHandle;
 import io.airlift.log.Logger;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameter;

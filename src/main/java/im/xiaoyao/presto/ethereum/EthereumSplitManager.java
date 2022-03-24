@@ -8,6 +8,9 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import im.xiaoyao.presto.ethereum.connector.EthereumConnectorConfig;
+import im.xiaoyao.presto.ethereum.handle.EthereumTableHandle;
+import im.xiaoyao.presto.ethereum.handle.EthereumTableLayoutHandle;
 import io.airlift.log.Logger;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.methods.response.EthBlockNumber;
@@ -16,22 +19,19 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 
-import static im.xiaoyao.presto.ethereum.EthereumHandleResolver.convertLayout;
+import static im.xiaoyao.presto.ethereum.handle.EthereumHandleResolver.convertLayout;
 import static java.util.Objects.requireNonNull;
 
 public class EthereumSplitManager implements ConnectorSplitManager {
     private static final Logger log = Logger.get(EthereumSplitManager.class);
 
-    private final String connectorId;
     private final Web3j web3j;
 
     @Inject
     public EthereumSplitManager(
-            EthereumConnectorId connectorId,
             EthereumConnectorConfig config,
             EthereumWeb3jProvider web3jProvider
     ) {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         requireNonNull(web3jProvider, "web3j is null");
         requireNonNull(config, "config is null");
         this.web3j = web3jProvider.getWeb3j();
