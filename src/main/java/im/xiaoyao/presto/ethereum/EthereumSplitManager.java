@@ -56,7 +56,7 @@ public class EthereumSplitManager implements ConnectorSplitManager {
 
             List<ConnectorSplit> connectorSplits;
             if (tableLayoutHandle.getBlockRanges().isEmpty()) {
-                connectorSplits = LongStream.range(0, lastBlockNumber)
+                connectorSplits = LongStream.range(0, lastBlockNumber + 1)
                         .boxed()
                         .map(blockNumber -> new EthereumSplit(blockNumber, table))
                         .collect(Collectors.toList());
@@ -66,7 +66,7 @@ public class EthereumSplitManager implements ConnectorSplitManager {
                         .flatMap(blockRange ->
                                 LongStream.range(
                                         blockRange.getStartBlock(),
-                                        blockRange.getEndBlock() == -1 ? lastBlockNumber : blockRange.getEndBlock()
+                                        blockRange.getEndBlock() == -1 ? lastBlockNumber : blockRange.getEndBlock() + 1
                                 ).boxed()
                         )
                         .map(blockNumber -> new EthereumSplit(blockNumber, table))
